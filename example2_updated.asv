@@ -14,7 +14,7 @@ Fkm1 = blkdiag(F2,F2);
 Hk = [1 0 0 0; 0 0 1 0];
 
 %% Process equation for targets x[k] = sys_f(x[k-1], P[k-1], u[k-1], Q[k-1]);
-nt = 02; % number of targets
+nt = 05; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
@@ -61,6 +61,7 @@ cov_x = cell(T,nt);
 cov_sys = cell(1,nt);
 
 z = cell(T,nt);
+z_false = cell(T,1);
 zt = cell(T,nt);
 cov_z = cell(T,nt);
 cov_obs = cell(1,nt);
@@ -72,6 +73,9 @@ ap = -5;
 bp = +5;
 av = -2;
 bv = +2;
+
+lambda = 1;
+box_size = [10; 10];
 
 %% Attribute parameters and simulate system for all targets
 for t = 1:nt
@@ -107,6 +111,13 @@ for t = 1:nt
         x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), u(:,k), zeros(nx,nx));   % simulate state
         % x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));   % simulate state
         z{k,t} = obs_f{t}(x{k,t}, zeros(nx,nx), v(:,k), zeros(nz,nz));     % simulate observation
+
+        % Add false alarms (clutter) to z_false{k}
+        nf = poissrnd(lambda);  % number of false alarms
+        z_false{k} = cell(1, nf);
+        for jj = 1:nf
+            z_false{k}{jj} = rand(nz,1).*box_size;  % false measurement
+        end
         
         % True state and observation (without noise)
         % xt{k,t} = sys_f{t}(xt{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));
@@ -169,8 +180,10 @@ for i = 1:Nr
         
         % State estimation and filtered observation
         params.k = k;
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'non-parametric');
+        z_all{k-1} = [z{k-1,:}, z_false{k-1,:}];
         [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'parametric');
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'non-parametric');
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'parametric');
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'tree');
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'lbp');
         
@@ -223,6 +236,14 @@ for t = 2:nt
     hnd(t) = plot(zhv(:,1,t), zhv(:,2,t), 'o', 'MarkerFaceColor', color);
     lbl{t,1} = sprintf('Target %d', t);
 end
+
+% --- Draw false alarms on frame 1 ---
+for j = 1:length(z_false{1})
+    if ~isempty(z_false{1}{j})
+        plot(z_false{1}{j}(1), z_false{1}{j}(2), 'rx', 'LineWidth', 1.5);
+    end
+end
+
 legend(hnd,lbl);
 set(gca,'FontSize',12);
 title('State-space','FontSize',14);

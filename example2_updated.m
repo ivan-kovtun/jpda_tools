@@ -61,6 +61,7 @@ cov_x = cell(T,nt);
 cov_sys = cell(1,nt);
 
 z = cell(T,nt);
+z_false = cell(T,1);
 zt = cell(T,nt);
 cov_z = cell(T,nt);
 cov_obs = cell(1,nt);
@@ -72,6 +73,10 @@ ap = -5;
 bp = +5;
 av = -2;
 bv = +2;
+
+lambda = 50;
+box_size = [220; 220];
+false_targets = 0;
 
 %% Attribute parameters and simulate system for all targets
 for t = 1:nt
@@ -107,6 +112,14 @@ for t = 1:nt
         x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), u(:,k), zeros(nx,nx));   % simulate state
         % x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));   % simulate state
         z{k,t} = obs_f{t}(x{k,t}, zeros(nx,nx), v(:,k), zeros(nz,nz));     % simulate observation
+
+        % Add false alarms (clutter) to z_false{k}
+        nf = poissrnd(lambda);  % number of false alarms
+        false_targets = false_targets + nf;
+        z_false{k} = cell(1, nf);
+        for jj = 1:nf
+            z_false{k}{jj} = (rand(nz,1) - 0.5) .* box_size;  % false measurement
+        end
         
         % True state and observation (without noise)
         % xt{k,t} = sys_f{t}(xt{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));
@@ -169,8 +182,10 @@ for i = 1:Nr
         
         % State estimation and filtered observation
         params.k = k;
+        z_all = [z(k-1,:), z_false{k-1}];
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric');
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'non-parametric');
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'parametric');
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'parametric');
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'tree');
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'lbp');
         
@@ -222,7 +237,22 @@ for t = 2:nt
     plot(zv(:,1,t), zv(:,2,t), 'Color', color);
     hnd(t) = plot(zhv(:,1,t), zhv(:,2,t), 'o', 'MarkerFaceColor', color);
     lbl{t,1} = sprintf('Target %d', t);
+
+    % Mark start and end
+    plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
+    plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
+
 end
+
+% --- Draw false alarms on frame 1 ---
+for t = 1:length(z_false)
+    for j = 1:length(z_false{t})
+        if ~isempty(z_false{t}{j})
+            plot(z_false{t}{j}(1), z_false{t}{j}(2), 'rx', 'LineWidth', 1.5);
+        end
+    end
+end
+
 legend(hnd,lbl);
 set(gca,'FontSize',12);
 title('State-space','FontSize',14);
