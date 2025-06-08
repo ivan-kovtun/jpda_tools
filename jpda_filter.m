@@ -1,4 +1,4 @@
-function [xhk, cov_xhk, zhk] = jpda_filter(sys_f, obs_f, xkm1, cov_xkm1, zk, params, type)
+function [xhk, cov_xhk, zhk] = jpda_filter(sys_f, obs_f, xkm1, cov_xkm1, zk, params, type, measure_queue)
 %% Parametric/Non-parametric joint probabilistic data association filter
 %
 % Usage:
@@ -22,6 +22,7 @@ function [xhk, cov_xhk, zhk] = jpda_filter(sys_f, obs_f, xkm1, cov_xkm1, zk, par
 %   .gamma   = gate threshold - probability (PG)
 % type     = type of prior probability mass function of the number of false measurements (clutter model).
 %            Set it either to 'parametric' or 'non_parametric'.
+% dq       = Data queue
 %
 % Outputs:
 % xhk     = cell array of estimated state vectors at time k (column vectors)
@@ -88,13 +89,31 @@ for t = 1:Nt
     % zh[k|k-1] = h( xh[k|k-1] )
     % S[k] = H[k] . Ph[k|k-1] . H[k]' + R[k]
     [zhkp{1,t}, cov_zhkp{1,t}, k_gain{1,t}] = obs_f{t}(xhkp{1,t}, cov_xhkp{1,t}, zeros(nz,1), cov_obs{1,t});
+
+    % Elsewhere, whenever you have a new measurement:
+    eventData.trajectory = t;             % or 2
+    eventData.step       = k;             % measurement index
+    eventData.center     = zhkp{t};
+
+    [V, D] = eig(cov_zhkp{t});    % розклад на власні вектори і значення
+    a = sqrt(D(1,1)) * sqrt(gamma_); % велика піввісь
+    b = sqrt(D(2,2)) * sqrt(gamma_); % мала піввісь
+    width  = 3*a;  % повна ширина еліпса
+    height = 3*b;  % повна висота еліпса
+    eventData.size       = [width, height];
+
+    % eventData.z          = [zx; zy];
+    eventData.fm         = zk;  % false marks
+    
+    send(measure_queue, eventData);
     
     % Validation
     for j = 1:m
         % V[k] = (z - zh[k|k-1])' . S[k]^-1 . (z - zh[k|k-1])
-        Nuk = (zk{j} - zhkp{t})'*(cov_zhkp{t}\(zk{j} - zhkp{t}));
+        %Nuk = (zk{j} - zhkp{t})'*(cov_zhkp{t}\(zk{j} - zhkp{t}));
         % Validation
-        if Nuk <= gamma_
+        if (abs(zk{j}(1) - zhkp{t}(1)) < width) && (abs(zk{j}(2) - zhkp{t}(2)) < height)
+            %if Nuk <= gamma_
             Omega(j,t+1) = 1;
         end
         nujt{j,t} = zk{j} - zhkp{t};

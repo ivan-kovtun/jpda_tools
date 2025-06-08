@@ -3,21 +3,38 @@ clear, clc, close all;
 addpath('export_fig');
 addpath('matlab-tree');
 
+global FIG
+global STROB_TRACKER
+
+simulator = SimulatorCrossedTracks();
+% simulator = SimulatorNarrowTracks();
+% simulator = SimulatorSimpleTracks();
+FIG = TrajectoryPlotter(simulator).fig;
+
+
+
 %% Constant velocity model parameters
 T = 1;
 F2 = [1 T; 0 1];
 % G2 = [T^2/2; T];
 % Q2 = G2*G2';
-Q2 = [T^3/3 T^2/2; T^2/2 T];
+A_q = 10;
+
+Q2 = A_q*[T^3/3 T^2/2; T^2/2 T];
 
 Fkm1 = blkdiag(F2,F2);
 Hk = [1 0 0 0; 0 0 1 0];
 
 %% Process equation for targets x[k] = sys_f(x[k-1], P[k-1], u[k-1], Q[k-1]);
-nt = 02; % number of targets
+nt = 05; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
+%% Prepare strobe tracker
+measure_queue = parallel.pool.DataQueue;
+true_queue = parallel.pool.DataQueue;
+tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
+STROB_TRACKER = tracker.axesGrid;
 
 %% Observation equation for targets z[k] = obs_f(x[k], P[k], v[k], R[k]);
 nz = 2; % number of observations
@@ -36,7 +53,7 @@ gen_sys_noise = @(Qu) mvnrnd(mux, Qu)';
 %% PDF of observation noise and noise generator function
 nv = 2;
 % R = 1e-3*eye(nv);
-R = 0.5*eye(nv);
+R = 1*eye(nv);
 % Rf = 0.05*eye(nv);
 Rf = R;
 muz = zeros(nz,1);
@@ -74,71 +91,41 @@ bp = +5;
 av = -2;
 bv = +2;
 
-lambda = 50;
+lambda = 1;
 box_size = [220; 220];
-false_targets = 0;
 
-%% Attribute parameters and simulate system for all targets
-for t = 1:nt
-    % Assign the state and output functions to the target
-    sys_f{t} = sys;
-    obs_f{t} = obs;
-    
-    % Assign the process and measurement noise covariances to the target
-    cov_sys{t} = Q;
-    cov_obs{t} = R;
-    
-    % Initialize
-    u(:,1) = gen_sys_noise(Q0);     % initial process noise
-    v(:,1) = gen_obs_noise(R);      % initial observation noise
-    
-    x0 = zeros(nx,1);
-    x0([1 3],1) = ap + (bp-ap).*rand(2,1); % initial position for target t
-    x0([2 4],1) = av + (bv-av).*rand(2,1); % initial velocity for target t
-    x{1,t} = x0 + gen_sys_noise(Q);
-    z{1,t} = obs(x0, P0, v(:,1), R);
-    
-    % True state and observation
-    xt{1,t} = x{1,t};
-    zt{1,t} = obs(x{1,t}, zeros(nx,nx), zeros(nz,1), zeros(nz,nz));
-    
-    for k = 2:T
-        u(:,k) = gen_sys_noise(Q);     % process noise
-        if k < T
-            v(:,k) = gen_obs_noise(R);
-        else
-            v(:,k) = gen_obs_noise(Rf);
-        end
-        x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), u(:,k), zeros(nx,nx));   % simulate state
-        % x{k,t} = sys_f{t}(x{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));   % simulate state
-        z{k,t} = obs_f{t}(x{k,t}, zeros(nx,nx), v(:,k), zeros(nz,nz));     % simulate observation
+y_min = 50;
+y_max = -50;
+x0 = -90;
 
-        % Add false alarms (clutter) to z_false{k}
-        nf = poissrnd(lambda);  % number of false alarms
-        false_targets = false_targets + nf;
-        z_false{k} = cell(1, nf);
-        for jj = 1:nf
-            z_false{k}{jj} = (rand(nz,1) - 0.5) .* box_size;  % false measurement
-        end
-        
-        % True state and observation (without noise)
-        % xt{k,t} = sys_f{t}(xt{k-1,t}, zeros(nx,nx), zeros(nx,1), zeros(nx,nx));
-        xt{k,t} = x{k,t};
-        zt{k,t} = obs_f{t}(x{k,t}, zeros(nx,nx), zeros(nz,1), zeros(nz,nz));
-    end
-    
-end
+
+filename = 'scenario_data_2.mat';
+
+[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
+%[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
+%                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
+% 
+save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+     'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+
+
+% load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+
+% [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nx, nz, T, Q0, Q, R, Rf, sys, obs, ap, bp, av, bv, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
 %% Allocate memory
 xh = cell(T,nt);
-zh = cell(T,nt);
+% the size of zh = cell(T,nt);
 
+
+%% Set the initial state
 for t = 1:nt
     xh{1,t} = x{1,t};
     % zh{1,t} = obs_f{t}(x{1,t}, 0, 0, 0);
     zh{1, t} = z{1,t};
     cov_x{1,t} = P0;
-    
+
     % xh{1,t} = [z{2,t}(1,1); (z{2,t}(1,1)-z{1,t}(1,1))/T; z{2,t}(2,1); (z{2,t}(2,1)-z{1,t}(2,1))/T];
     % cov_x{1,t} = blkdiag([R(1,1), R(1,1)/T; R(1,1)/T, 2*R(1,1)/T^2], [R(2,2), R(2,2)/T; R(2,2)/T, 2*R(2,2)/T^2]);
 end
@@ -173,22 +160,22 @@ NEES = zeros(T,1);
 ERMS = zeros(T,1);
 tic
 for i = 1:Nr
-    
+
     fprintf('Run = %d/%d\n',i,Nr);
-    
+
     % Estimate state
     for k = 2:T
         % fprintf('Iteration = %d/%d\n',k,T);
-        
+
         % State estimation and filtered observation
         params.k = k;
         z_all = [z(k-1,:), z_false{k-1}];
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric');
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'non-parametric');
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'parametric');
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'tree');
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z(k-1,:), params, 'lbp');
-        
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
+
         % Computation of NEES
         NEESkt = 0;
         ERMSkt = 0;
@@ -217,15 +204,15 @@ zhv = zeros(T,nz,nt);
 
 for t = 1:nt
     for k = 1:T
-    xv(k,1:nx,t) =  xt{k,t};
-    zv(k,1:nz,t) =  zt{k,t};
-    xhv(k,1:nx,t) =  xh{k,t};
-    zhv(k,1:nz,t) =  zh{k,t};
+        xv(k,1:nx,t) =  xt{k,t};
+        zv(k,1:nz,t) =  zt{k,t};
+        xhv(k,1:nx,t) =  xh{k,t};
+        zhv(k,1:nz,t) =  zh{k,t};
     end
 end
 
 % Plot
-figure(1)
+figure()
 hnd = zeros(nt,1);
 color = rand(3,1);
 plot(zv(:,1,1), zv(:,2,1), 'Color', color); hold on;
@@ -259,7 +246,7 @@ title('State-space','FontSize',14);
 xlabel('Coordinate X (m)','FontSize',14);
 ylabel('Coordinate Y (m)','FontSize',14);
 
-figure(2)
+figure()
 plot((1:T)',NEES);
 ylabel('NEES','FontSize',14);
 xlabel('Epoch','FontSize',14);
@@ -267,7 +254,7 @@ set(gca,'FontSize',12);
 title(sprintf('Normalised Estimation Error Squared (NEES) - %d targets',nt),'FontSize',14);
 grid on;
 
-figure(3)
+figure()
 plot((1:T)',ERMS);
 ylabel('RMSE (m)','FontSize',14);
 xlabel('Epoch','FontSize',14);
