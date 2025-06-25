@@ -99,13 +99,16 @@ classdef SimulatorCrossedTracks < handle
                 k = 1;
                 y_traj(ti,k) = y_start;
                 x_traj(ti,k) = x_start;
+
+                vy_traj(ti,k) = v * sin(-alpha_traj(ti));
+                vx_traj(ti,k) = -v * cos(-alpha_traj(ti));
                 
                 % — 1
                 for k = 2:T
                     y_traj(ti,k) = y_traj(ti,k - 1) + v * sin(-alpha_traj(ti));
                     x_traj(ti,k) = x_traj(ti,k - 1) - v * cos(-alpha_traj(ti));
                     vy_traj(ti,k) = v * sin(-alpha_traj(ti));
-                    vx_traj(ti,k) = v * cos(-alpha_traj(ti));
+                    vx_traj(ti,k) = -v * cos(-alpha_traj(ti));
                 end
 
 

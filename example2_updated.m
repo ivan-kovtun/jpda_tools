@@ -8,7 +8,7 @@ global STROB_TRACKER
 
 simulator = SimulatorCrossedTracks();
 % simulator = SimulatorNarrowTracks();
-% simulator = SimulatorSimpleTracks();
+% simulator = SimulatorSimple Tracks();
 FIG = TrajectoryPlotter(simulator).fig;
 
 
@@ -18,7 +18,11 @@ T = 1;
 F2 = [1 T; 0 1];
 % G2 = [T^2/2; T];
 % Q2 = G2*G2';
+% A_q = 10;
+
 A_q = 10;
+
+association_threshold = 10;
 
 Q2 = A_q*[T^3/3 T^2/2; T^2/2 T];
 
@@ -33,8 +37,8 @@ sys = @state_eq2;
 %% Prepare strobe tracker
 measure_queue = parallel.pool.DataQueue;
 true_queue = parallel.pool.DataQueue;
-tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
-STROB_TRACKER = tracker.axesGrid;
+% tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
+% STROB_TRACKER = tracker.axesGrid;
 
 %% Observation equation for targets z[k] = obs_f(x[k], P[k], v[k], R[k]);
 nz = 2; % number of observations
@@ -66,7 +70,8 @@ P0 = Q0;
 S0 = Hk*(Fkm1*P0*Fkm1' + Q0)*Hk' + R;
 
 %% Number of time steps
-T = 50;
+% T = 50;
+T = 35;
 
 %% Separate memory space
 sys_f = cell(1,nt);
@@ -105,10 +110,10 @@ filename = 'scenario_data_2.mat';
 %[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
 %                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
 % 
-save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
-     'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
-
-
+% save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+% 
+% 
 % load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
 %      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
 
@@ -155,10 +160,19 @@ params.lambda       = lambda;           % spatial density of false measurements 
 params.gamma        = chi2inv(0.99,nz); % gate threshold - probability (PG) - for confidence of 99% and nz degrees of freedom
 
 % Nr Monte Carlo runs
-Nr = 1;
+Nr = 10;
 NEES = zeros(T,1);
 ERMS = zeros(T,1);
 tic
+
+total_metrics = struct('nCases', 0, ...
+                          'nOK', 0, ...
+                          'nSwitched', 0, ...
+                          'nMerged', 0, ...
+                          'nLost', 0, ...
+                          'nResult', 0, ...
+                          'CFT', 0)
+
 for i = 1:Nr
 
     fprintf('Run = %d/%d\n',i,Nr);
@@ -190,7 +204,21 @@ for i = 1:Nr
         NEES(k,1) = NEES(k,1) + NEESkt/nt;
         ERMS(k,1) = ERMS(k,1) + ERMSkt/nt;
     end
+
+    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 13, 33, 35);
+
+    total_metrics.nCases     = total_metrics.nCases     +   metrics.nCases;
+    total_metrics.nOK        = total_metrics.nOK        +   metrics.nOK;
+    total_metrics.nSwitched  = total_metrics.nSwitched  +   metrics.nSwitched;
+    total_metrics.nMerged    = total_metrics.nMerged    +   metrics.nMerged;
+    total_metrics.nLost      = total_metrics.nLost      +   metrics.nLost;
+    total_metrics.nResult    = total_metrics.nResult    +   metrics.nResult;
+    total_metrics.CFT        = total_metrics.CFT        +   metrics.CFT;
+
 end
+
+disp(total_metrics);
+
 timerVal = tic;
 toc
 
@@ -219,6 +247,12 @@ plot(zv(:,1,1), zv(:,2,1), 'Color', color); hold on;
 hnd(1) = plot(zhv(:,1,1), zhv(:,2,1), 'o', 'MarkerFaceColor', color);
 lbl = cell(nt,1);
 lbl{1,1} = 'Target 1';
+
+% Mark start and end
+t = 1;
+plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
+plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
+
 for t = 2:nt
     color = rand(3,1);
     plot(zv(:,1,t), zv(:,2,t), 'Color', color);
