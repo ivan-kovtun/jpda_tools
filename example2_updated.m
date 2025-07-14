@@ -6,8 +6,8 @@ addpath('matlab-tree');
 global FIG
 global STROB_TRACKER
 
-simulator = SimulatorCrossedTracks();
-% simulator = SimulatorNarrowTracks();
+% simulator = SimulatorCrossedTracks();
+simulator = SimulatorNarrowTracks();
 % simulator = SimulatorSimple Tracks();
 FIG = TrajectoryPlotter(simulator).fig;
 
@@ -22,7 +22,7 @@ F2 = [1 T; 0 1];
 
 A_q = 10;
 
-association_threshold = 10;
+association_threshold = 6;
 
 Q2 = A_q*[T^3/3 T^2/2; T^2/2 T];
 
@@ -30,15 +30,15 @@ Fkm1 = blkdiag(F2,F2);
 Hk = [1 0 0 0; 0 0 1 0];
 
 %% Process equation for targets x[k] = sys_f(x[k-1], P[k-1], u[k-1], Q[k-1]);
-nt = 05; % number of targets
+nt = 02; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
 %% Prepare strobe tracker
 measure_queue = parallel.pool.DataQueue;
 true_queue = parallel.pool.DataQueue;
-% tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
-% STROB_TRACKER = tracker.axesGrid;
+tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
+STROB_TRACKER = tracker.axesGrid;
 
 %% Observation equation for targets z[k] = obs_f(x[k], P[k], v[k], R[k]);
 nz = 2; % number of observations
@@ -106,7 +106,10 @@ x0 = -90;
 
 filename = 'scenario_data_2.mat';
 
-[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
+% [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
+
+[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
+                                                                                                                 
 %[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
 %                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
 % 
@@ -160,7 +163,7 @@ params.lambda       = lambda;           % spatial density of false measurements 
 params.gamma        = chi2inv(0.99,nz); % gate threshold - probability (PG) - for confidence of 99% and nz degrees of freedom
 
 % Nr Monte Carlo runs
-Nr = 10;
+Nr = 1;
 NEES = zeros(T,1);
 ERMS = zeros(T,1);
 tic
@@ -184,11 +187,11 @@ for i = 1:Nr
         % State estimation and filtered observation
         params.k = k;
         z_all = [z(k-1,:), z_false{k-1}];
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
 
         % Computation of NEES
         NEESkt = 0;
@@ -205,7 +208,9 @@ for i = 1:Nr
         ERMS(k,1) = ERMS(k,1) + ERMSkt/nt;
     end
 
-    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 13, 33, 35);
+    draw_simulation(xt, zt, xh, zh, z_false, T, nt, nx, nz);
+
+    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 7, 33, 35);
 
     total_metrics.nCases     = total_metrics.nCases     +   metrics.nCases;
     total_metrics.nOK        = total_metrics.nOK        +   metrics.nOK;
@@ -225,60 +230,56 @@ toc
 NEES = NEES/Nr;
 ERMS = sqrt(ERMS/Nr);
 
-xv = zeros(T,nx,nt);
-zv = zeros(T,nz,nt);
-xhv = zeros(T,nx,nt);
-zhv = zeros(T,nz,nt);
+% xv = zeros(T,nx,nt);
+% zv = zeros(T,nz,nt);
+% xhv = zeros(T,nx,nt);
+% zhv = zeros(T,nz,nt);
+% 
+% for t = 1:nt
+%     for k = 1:T
+%         xv(k,1:nx,t) =  xt{k,t};
+%         zv(k,1:nz,t) =  zt{k,t};
+%         xhv(k,1:nx,t) =  xh{k,t};
+%         zhv(k,1:nz,t) =  zh{k,t};
+%     end
+% end
+% 
+% % Plot
+% figure()
+% hnd = zeros(nt,1);
+% color = rand(3,1);
+% plot(zv(:,1,1), zv(:,2,1), 'Color', color); hold on;
+% hnd(1) = plot(zhv(:,1,1), zhv(:,2,1), 'o', 'MarkerFaceColor', color);
+% lbl = cell(nt,1);
+% lbl{1,1} = 'Target 1';
+% 
+% % Mark start and end
+% t = 1;
+% plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
+% plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
+% 
+% for t = 2:nt
+%     color = rand(3,1);
+%     plot(zv(:,1,t), zv(:,2,t), 'Color', color);
+%     hnd(t) = plot(zhv(:,1,t), zhv(:,2,t), 'o', 'MarkerFaceColor', color);
+%     lbl{t,1} = sprintf('Target %d', t);
+% 
+%     % Mark start and end
+%     plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
+%     plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
+% 
+% end
+% 
+% % --- Draw false alarms on frame 1 ---
+% for t = 1:length(z_false)
+%     for j = 1:length(z_false{t})
+%         if ~isempty(z_false{t}{j})
+%             plot(z_false{t}{j}(1), z_false{t}{j}(2), 'rx', 'LineWidth', 1.5);
+%         end
+%     end
+% end
 
-for t = 1:nt
-    for k = 1:T
-        xv(k,1:nx,t) =  xt{k,t};
-        zv(k,1:nz,t) =  zt{k,t};
-        xhv(k,1:nx,t) =  xh{k,t};
-        zhv(k,1:nz,t) =  zh{k,t};
-    end
-end
 
-% Plot
-figure()
-hnd = zeros(nt,1);
-color = rand(3,1);
-plot(zv(:,1,1), zv(:,2,1), 'Color', color); hold on;
-hnd(1) = plot(zhv(:,1,1), zhv(:,2,1), 'o', 'MarkerFaceColor', color);
-lbl = cell(nt,1);
-lbl{1,1} = 'Target 1';
-
-% Mark start and end
-t = 1;
-plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
-plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
-
-for t = 2:nt
-    color = rand(3,1);
-    plot(zv(:,1,t), zv(:,2,t), 'Color', color);
-    hnd(t) = plot(zhv(:,1,t), zhv(:,2,t), 'o', 'MarkerFaceColor', color);
-    lbl{t,1} = sprintf('Target %d', t);
-
-    % Mark start and end
-    plot(zv(1,1,t), zv(1,2,t), '^', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % старт
-    plot(zv(end,1,t), zv(end,2,t), 'v', 'Color', color, 'MarkerSize', 8, 'MarkerFaceColor', color);  % фініш
-
-end
-
-% --- Draw false alarms on frame 1 ---
-for t = 1:length(z_false)
-    for j = 1:length(z_false{t})
-        if ~isempty(z_false{t}{j})
-            plot(z_false{t}{j}(1), z_false{t}{j}(2), 'rx', 'LineWidth', 1.5);
-        end
-    end
-end
-
-legend(hnd,lbl);
-set(gca,'FontSize',12);
-title('State-space','FontSize',14);
-xlabel('Coordinate X (m)','FontSize',14);
-ylabel('Coordinate Y (m)','FontSize',14);
 
 figure()
 plot((1:T)',NEES);

@@ -98,8 +98,8 @@ for t = 1:Nt
     [V, D] = eig(cov_zhkp{t});    % розклад на власні вектори і значення
     a = sqrt(D(1,1)) * sqrt(gamma_); % велика піввісь
     b = sqrt(D(2,2)) * sqrt(gamma_); % мала піввісь
-    width  = 3*a;  % повна ширина еліпса
-    height = 3*b;  % повна висота еліпса
+    width  = 5*a;  % повна ширина еліпса
+    height = 5*b;  % повна висота еліпса
     eventData.size       = [width, height];
 
     % eventData.z          = [zx; zy];

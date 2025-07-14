@@ -41,7 +41,7 @@ c = prod(sc);
 
 % Generation of feasible events
 ind = cell(mk,1);
-Om = zeros(c*mk,size(Omega,2));
+% Om = zeros(c*mk,size(Omega,2));
 Oms = zeros(c*mk,size(Omega,2));
 
 delta = zeros(1,c*Nt);

@@ -60,9 +60,11 @@ end
 target_counts = zeros(1, nt);
 for i = 1:nt
     for j = 1:nt
-        dx = norm(xhv{scan_eval, j}(1:2) - xv{scan_eval, i}(1:2));
-        if dx < association_threshold
-            target_counts(i) = target_counts(i) + 1;
+        if i ~= j 
+            dx = norm(xhv{scan_eval, j}(1:2) - xv{scan_eval, i}(1:2));
+            if dx < association_threshold
+                target_counts(i) = target_counts(i) + 1;
+            end
         end
     end
 end
