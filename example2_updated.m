@@ -71,7 +71,8 @@ S0 = Hk*(Fkm1*P0*Fkm1' + Q0)*Hk' + R;
 
 %% Number of time steps
 % T = 50;
-T = 35;
+% T = 35;
+T = 75;
 
 %% Separate memory space
 sys_f = cell(1,nt);
@@ -106,9 +107,11 @@ x0 = -90;
 
 filename = 'scenario_data_2.mat';
 
+% Лінійні траєкторії що перетинаються
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
-[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
+% Паралельні траєкторії
+% [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
                                                                                                                  
 %[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
 %                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
@@ -117,8 +120,8 @@ filename = 'scenario_data_2.mat';
 %      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
 % 
 % 
-% load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
-%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+     'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
 
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nx, nz, T, Q0, Q, R, Rf, sys, obs, ap, bp, av, bv, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
@@ -187,11 +190,11 @@ for i = 1:Nr
         % State estimation and filtered observation
         params.k = k;
         z_all = [z(k-1,:), z_false{k-1}];
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
 
         % Computation of NEES
         NEESkt = 0;
@@ -210,7 +213,7 @@ for i = 1:Nr
 
     draw_simulation(xt, zt, xh, zh, z_false, T, nt, nx, nz);
 
-    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 7, 33, 35);
+    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, T*0.05, T*0.95, T);
 
     total_metrics.nCases     = total_metrics.nCases     +   metrics.nCases;
     total_metrics.nOK        = total_metrics.nOK        +   metrics.nOK;
