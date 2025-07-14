@@ -111,17 +111,17 @@ filename = 'scenario_data_2.mat';
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
 % Паралельні траєкторії
-% [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
+[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
                                                                                                                  
 %[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
 %                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
 % 
-% save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
-%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
-% 
-% 
-load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+% 
+% 
+% load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
 
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nx, nz, T, Q0, Q, R, Rf, sys, obs, ap, bp, av, bv, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
