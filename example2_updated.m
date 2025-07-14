@@ -190,11 +190,11 @@ for i = 1:Nr
         % State estimation and filtered observation
         params.k = k;
         z_all = [z(k-1,:), z_false{k-1}];
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
 
         % Computation of NEES
         NEESkt = 0;
