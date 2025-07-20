@@ -20,9 +20,9 @@ F2 = [1 T; 0 1];
 % Q2 = G2*G2';
 % A_q = 10;
 
-A_q = 10;
+A_q = 100;
 
-association_threshold = 6;
+association_threshold = 7;
 
 Q2 = A_q*[T^3/3 T^2/2; T^2/2 T];
 
@@ -34,11 +34,17 @@ nt = 02; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
+show_strobes = true;
+
 %% Prepare strobe tracker
-measure_queue = parallel.pool.DataQueue;
-true_queue = parallel.pool.DataQueue;
-tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
-STROB_TRACKER = tracker.axesGrid;
+measure_queue = [];
+true_queue = [];
+if show_strobes == true
+    measure_queue = parallel.pool.DataQueue;
+    true_queue = parallel.pool.DataQueue;
+    tracker = StrobTracker(measure_queue, true_queue, nt);    % two trajectories
+    STROB_TRACKER = tracker.axesGrid;
+end
 
 %% Observation equation for targets z[k] = obs_f(x[k], P[k], v[k], R[k]);
 nz = 2; % number of observations
@@ -52,12 +58,13 @@ Q = 1e-3*blkdiag(Q2,Q2);
 % Q = 1e-4*blkdiag(Q2,Q2);
 mux = zeros(nx,1);
 p_sys_noise   = @(u, Qu) mvnpdf(u, mux, Qu);
-gen_sys_noise = @(Qu) mvnrnd(mux, Qu)';
+% gen_sys_noise = @(Qu) mvnrnd(mux, Qu)';
+gen_sys_noise = @(Qu) mvnrnd(mux, (Qu + Qu')/2)';
 
 %% PDF of observation noise and noise generator function
 nv = 2;
 % R = 1e-3*eye(nv);
-R = 1*eye(nv);
+R = 0.1*eye(nv);
 % Rf = 0.05*eye(nv);
 Rf = R;
 muz = zeros(nz,1);
@@ -106,18 +113,30 @@ x0 = -90;
 
 
 filename = 'scenario_data_2.mat';
+% filename = 'scenario_data_parallel_merged.mat';
+% filename = 'scenario_data_parallel_merged_2.mat';
+% filename = 'scenario_data_parallel_switched.mat';
+filename = 'scenario_data_parallel_success.mat';
+
+sys_f        = repmat({sys},  1, nt);
+obs_f        = repmat({obs},  1, nt);
+cov_sys      = repmat({Q},    1, nt);
+cov_obs      = repmat({R},    1, nt);
+
+% Нова функція для генерації істиних траекторій
+[xt, cov_x] = generate_true_scenario('narrow_tracks', nt, T, Q);
 
 % Лінійні траєкторії що перетинаються
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, 75, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
 % Паралельні траєкторії
-[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
+% [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
                                                                                                                  
 %[sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise);
 %                                                                                                                 %nt, nz, T, Q, R, Rf, sys, obs, x0, y_min, y_max, lambda, box_size, gen_sys_noise, gen_obs_noise
 % 
-save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
-     'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
+% save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
+%      'z', 'z_false', 'zt', 'cov_z', 'cov_obs', 'false_targets');
 % 
 % 
 % load(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
@@ -126,20 +145,11 @@ save(filename, 'sys_f', 'obs_f', 'x', 'xt', 'cov_x', 'cov_sys', ...
 % [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, false_targets] = simulator.create_scenario(nt, nx, nz, T, Q0, Q, R, Rf, sys, obs, ap, bp, av, bv, lambda, box_size, gen_sys_noise, gen_obs_noise);
 
 %% Allocate memory
-xh = cell(T,nt);
+xh = cell(T+1,nt);
 % the size of zh = cell(T,nt);
 
 
-%% Set the initial state
-for t = 1:nt
-    xh{1,t} = x{1,t};
-    % zh{1,t} = obs_f{t}(x{1,t}, 0, 0, 0);
-    zh{1, t} = z{1,t};
-    cov_x{1,t} = P0;
 
-    % xh{1,t} = [z{2,t}(1,1); (z{2,t}(1,1)-z{1,t}(1,1))/T; z{2,t}(2,1); (z{2,t}(2,1)-z{1,t}(2,1))/T];
-    % cov_x{1,t} = blkdiag([R(1,1), R(1,1)/T; R(1,1)/T, 2*R(1,1)/T^2], [R(2,2), R(2,2)/T; R(2,2)/T, 2*R(2,2)/T^2]);
-end
 
 % P = blkdiag([R(1,1), R(1,1)/T; R(1,1)/T, 2*R(1,1)/T^2], [R(2,2), R(2,2)/T; R(2,2)/T, 2*R(2,2)/T^2]);
 % S = Hk*(Fkm1*P*Fkm1' + Q0)*Hk' + R;
@@ -150,6 +160,7 @@ S = S0;
 % Volume of validation region
 gamma_ = chi2inv(0.99,nz);
 lambda = 0.01;
+epsilon = 1e-3;
 % cnz = pi^(nz/2)/gamma(nz/2 + 1);
 % Estimation of the total surveillance region
 % (union of validation region for all targets)
@@ -183,13 +194,29 @@ for i = 1:Nr
 
     fprintf('Run = %d/%d\n',i,Nr);
 
+    [x, z, zt, z_false, cov_z, false_targets] = realize_scenario(...
+                xt, cov_x, R, Rf, obs, gen_sys_noise, gen_obs_noise, lambda, box_size);
+
+    %% Set the initial state
+    for t = 1:nt
+        xh{1,t} = xt{1,t}; % як перший прогноз беремо другу істинну відмітку
+        % zh{1,t} = obs_f{t}(x{1,t}, 0, 0, 0);
+        zh{1, t} = zt{1,t};
+        cov_x{1,t} = P0 + epsilon * eye(nx);
+    
+        % xh{1,t} = [z{2,t}(1,1); (z{2,t}(1,1)-z{1,t}(1,1))/T; z{2,t}(2,1); (z{2,t}(2,1)-z{1,t}(2,1))/T];
+        % cov_x{1,t} = blkdiag([R(1,1), R(1,1)/T; R(1,1)/T, 2*R(1,1)/T^2], [R(2,2), R(2,2)/T; R(2,2)/T, 2*R(2,2)/T^2]);
+    end
+
+
     % Estimate state
     for k = 2:T
         % fprintf('Iteration = %d/%d\n',k,T);
 
         % State estimation and filtered observation
         params.k = k;
-        z_all = [z(k-1,:), z_false{k-1}];
+        % z_all = [z(k-1,:), z_false{k-1}];
+        z_all = [z(k,:), z_false{k}];
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
@@ -211,9 +238,9 @@ for i = 1:Nr
         ERMS(k,1) = ERMS(k,1) + ERMSkt/nt;
     end
 
-    draw_simulation(xt, zt, xh, zh, z_false, T, nt, nx, nz);
+    draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz);
 
-    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, T*0.05, T*0.95, T);
+    metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 2, T*0.95, T);
 
     total_metrics.nCases     = total_metrics.nCases     +   metrics.nCases;
     total_metrics.nOK        = total_metrics.nOK        +   metrics.nOK;
@@ -232,6 +259,18 @@ toc
 
 NEES = NEES/Nr;
 ERMS = sqrt(ERMS/Nr);
+
+% Ступені свободи (для nt цілей)
+dof = nx * nt;
+alpha = 0.05;
+
+% Границі довірчого інтервалу (95%)
+lower_bound = chi2inv(alpha/2, dof) / nt;
+upper_bound = chi2inv(1 - alpha/2, dof) / nt;
+
+% Вивести межі
+disp(['Lower bound (95%): ', num2str(lower_bound)])
+disp(['Upper bound (95%): ', num2str(upper_bound)])
 
 % xv = zeros(T,nx,nt);
 % zv = zeros(T,nz,nt);

@@ -32,6 +32,7 @@ classdef TrajectoryPlotter < handle
 
         function onNewMeasurement(obj, ~, ev)
             traj = ev.trajectory;
+            step = ev.step;
             tau  = ev.tau;
             x    = ev.x;   % [x; xdot; y; ydot]
             z    = ev.z;   % [z_x; z_y]
@@ -66,6 +67,12 @@ classdef TrajectoryPlotter < handle
             %      'HorizontalAlignment','right', ...
             %      'Color',c, ...
             %      'FontSize',9, ...
+            %      'HandleVisibility','off');
+
+            % % Label for center
+            % text(x(1)-0.8, x(2)-0.8, sprintf('%d', step), ...
+            %      'Color', 'r', ...
+            %      'FontSize', 9, ...
             %      'HandleVisibility','off');
 
             % 4) If tau==1, mark as start

@@ -105,15 +105,17 @@ for t = 1:Nt
     % eventData.z          = [zx; zy];
     eventData.fm         = zk;  % false marks
     
-    send(measure_queue, eventData);
+    if ~isempty(measure_queue)
+        send(measure_queue, eventData);
+    end
     
     % Validation
     for j = 1:m
         % V[k] = (z - zh[k|k-1])' . S[k]^-1 . (z - zh[k|k-1])
-        %Nuk = (zk{j} - zhkp{t})'*(cov_zhkp{t}\(zk{j} - zhkp{t}));
+        % Nuk = (zk{j} - zhkp{t})'*(cov_zhkp{t}\(zk{j} - zhkp{t}));
         % Validation
         if (abs(zk{j}(1) - zhkp{t}(1)) < width) && (abs(zk{j}(2) - zhkp{t}(2)) < height)
-            %if Nuk <= gamma_
+        % if Nuk <= gamma_
             Omega(j,t+1) = 1;
         end
         nujt{j,t} = zk{j} - zhkp{t};
