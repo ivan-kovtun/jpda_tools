@@ -34,7 +34,7 @@ nt = 02; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
-show_strobes = true;
+show_strobes = false;
 
 %% Prepare strobe tracker
 measure_queue = [];
@@ -64,7 +64,7 @@ gen_sys_noise = @(Qu) mvnrnd(mux, (Qu + Qu')/2)';
 %% PDF of observation noise and noise generator function
 nv = 2;
 % R = 1e-3*eye(nv);
-R = 0.1*eye(nv);
+R = 1*eye(nv);
 % Rf = 0.05*eye(nv);
 Rf = R;
 muz = zeros(nz,1);
@@ -177,9 +177,20 @@ params.lambda       = lambda;           % spatial density of false measurements 
 params.gamma        = chi2inv(0.99,nz); % gate threshold - probability (PG) - for confidence of 99% and nz degrees of freedom
 
 % Nr Monte Carlo runs
-Nr = 1;
+Nr = 100;
 NEES = zeros(T,1);
 ERMS = zeros(T,1);
+
+SE_x = zeros(T, nt);  % накопичення квадратів похибок по X
+SE_y = zeros(T, nt);  % накопичення квадратів похибок по Y
+
+Bias_x = zeros(T, nt);  % накопичення похибки по X
+Bias_y = zeros(T, nt);  % накопичення похибки по Y
+
+Var_x = zeros(T, nt); % аналітична дисперсія вимірювання 
+Var_y = zeros(T, nt);
+
+
 tic
 
 total_metrics = struct('nCases', 0, ...
@@ -217,11 +228,11 @@ for i = 1:Nr
         params.k = k;
         % z_all = [z(k-1,:), z_false{k-1}];
         z_all = [z(k,:), z_false{k}];
-        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'lbp', measure_queue);
 
         % Computation of NEES
         NEESkt = 0;
@@ -233,12 +244,29 @@ for i = 1:Nr
                 + (xt{k,t} - xh{k,t})'*(cov_x{k,t}\(xt{k,t} - xh{k,t}))/nx;
             ERMSkt = ERMSkt ...
                 + sum((zt{k,t} - zh{k,t}).^2);
+
+
+            dx = zt{k,t}(1) - zh{k,t}(1);   % похибка по X
+            dy = zt{k,t}(2) - zh{k,t}(2);   % похибка по Y
+
+            Bias_x(k,t) = Bias_x(k,t) + dx;
+            Bias_y(k,t) = Bias_y(k,t) + dy;
+            
+            SE_x(k,t) = SE_x(k,t) + dx^2;
+            SE_y(k,t) = SE_y(k,t) + dy^2;
+
+            Pk = cov_x{k, t};    % 4x4
+            Var_x(k, t) = Var_x(k, t) + Pk(1,1);  % дисперсія по X
+            Var_y(k, t) = Var_y(k, t) + Pk(3,3);  % дисперсія по Y
+
         end
         NEES(k,1) = NEES(k,1) + NEESkt/nt;
         ERMS(k,1) = ERMS(k,1) + ERMSkt/nt;
+
+
     end
 
-    draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz);
+    % draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz);
 
     metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 2, T*0.95, T);
 
@@ -259,6 +287,47 @@ toc
 
 NEES = NEES/Nr;
 ERMS = sqrt(ERMS/Nr);
+
+MSE_x = SE_x / Nr;
+MSE_y = SE_y / Nr;
+
+RMSE_x = sqrt(MSE_x);
+RMSE_y = sqrt(MSE_y);
+
+Bias_x = Bias_x / Nr;
+Bias_y = Bias_y / Nr;
+
+Var_x = Var_x / Nr;
+Var_y = Var_y / Nr;
+
+
+figure;
+titles = {'Target 1 - X', 'Target 1 - Y', 'Target 2 - X', 'Target 2 - Y'};
+
+for t = 1:nt
+    % --- X координата ---
+    subplot(2,2,2*(t-1)+1);
+    plot(1:T, Bias_x(:,t), '-',  'LineWidth', 1.5); hold on;
+    plot(1:T, MSE_x(:,t),  '--', 'LineWidth', 1.5);
+    plot(1:T, Var_x(:,t),  ':',  'LineWidth', 1.5);
+    title(titles{2*(t-1)+1});
+    xlabel('Time Step'); ylabel('X error stats');
+    legend('Мат.сподівання ПВ', 'Квадр.ПВ', 'Аналіт.оцінка похибки');
+    grid on;
+
+    % --- Y координата ---
+    subplot(2,2,2*(t-1)+2);
+    plot(1:T, Bias_y(:,t), '-',  'LineWidth', 1.5); hold on;
+    plot(1:T, MSE_y(:,t),  '--', 'LineWidth', 1.5);
+    plot(1:T, Var_y(:,t),  ':',  'LineWidth', 1.5);
+    title(titles{2*(t-1)+2});
+    xlabel('Time Step'); ylabel('Y error stats');
+    legend('Мат.сподівання ПВ', 'Квадр.ПВ', 'Аналіт.оцінка похибки');
+    grid on;
+end
+
+
+
 
 % Ступені свободи (для nt цілей)
 dof = nx * nt;
