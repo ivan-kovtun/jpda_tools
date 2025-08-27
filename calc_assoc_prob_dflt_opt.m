@@ -149,10 +149,14 @@ phif(1:k,1) = phi(1:k,1);
 
 beta = zeros(size(Omega));
 
+disp('Omega:');   disp(Omega);
+disp('V:');   disp(V);
+
 % Target t = 0 (no detection) shall not be included
 % Already taken into account in the probability of false detection
 switch lower(type)
     case 'parametric_opt'
+        Vt = sum(V);
         for t = 1:Nt+1
             for j = 1:mk
                 betatj = 0;
@@ -161,15 +165,22 @@ switch lower(type)
                     P1 = 1; P2 = 1;
                     % Only perform the calculation if it is part of the event to
                     % compute margin al probability beta(j,t)
+                    disp('Vi:');   disp(Omf(i*mk -mk +1:i*mk,:));
+                    disp('i*mk -mk +j');   disp(j);
+                    disp('t'); disp(t);
                     if Omf(i*mk -mk +j,t) == 1
                         % For targets where
                         ind = find(sum(Omf(i*mk -mk +1:i*mk,:),1) == 1);
                         for ti = ind
-                            a1 = ((lambda^-1)*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
-                            % a1 = ((V(t)^-phif(i, 1))*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
+                            % a1 = ((lambda^-1)*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
+                            a1 = F(:,ti).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
                             % a1old = ((lambda^-1)*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
                             
-                            % disp(sum(a1 - a1old));
+                            
+                            disp('a1:');   disp(a1);
+                            % disp('a1old:'); disp(a1old);
+                            % disp('sum(a1-a1old)'); disp(sum(a1 - a1old));
+
 
                             P1 = P1*prod(a1);
                         end
@@ -178,7 +189,15 @@ switch lower(type)
                             ((1 -PDt).^(1 -deltaf(1,i*Nt -Nt +1:i*Nt)));
                         P2 = prod(a2);
                         
-                        P = P1*P2;
+                        Vphi = Vt^-(phif(i,1));
+                        disp('Vphi:');   disp(Vphi);
+
+                        % ------------------------------------
+                        % betta_jt = V ^ phi(vi) * P1 * P2
+                        % P1 = prod(j=1:mk)[Fjt.^tau_i]
+                        % P2 = prod(t=1:Nt)[PDt.^delta_t .* (1 - PDt).^(1 - detlta_t)]
+
+                        P = Vphi*P1*P2;
                         % Include if the assignment is such that wjt = 1
                         % if Omf(i*mk -mk +j,t) == 1
                         % if Omega(j,t) == 1

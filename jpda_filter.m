@@ -126,7 +126,7 @@ for t = 1:Nt
     % Volume of validation region
     % cnz = pi^(nz/2)/gamma(nz/2 + 1);
     % V(1,t+1) = cnz*sqrt(det(gamma_*cov_zhkp{t}));
-    V(1,t+1) = 1/(width * height);
+    V(1,t+1) = (width * height);
 end
 
 %% Number of validated measurements (sum over targets - columns)

@@ -64,8 +64,8 @@ gen_sys_noise = @(Qu) mvnrnd(mux, (Qu + Qu')/2)';
 
 %% PDF of observation noise and noise generator function
 nv = 2;
-% R = 1e-3*eye(nv);
-R = 1*eye(nv);
+R = 5e-1*eye(nv);
+% R = 1*eye(nv);
 % Rf = 0.05*eye(nv);
 Rf = R;
 muz = zeros(nz,1);
@@ -113,11 +113,11 @@ y_max = -50;
 x0 = -90;
 
 
-filename = 'scenario_data_2.mat';
+% filename = 'scenario_data_2.mat';
 % filename = 'scenario_data_parallel_merged.mat';
 % filename = 'scenario_data_parallel_merged_2.mat';
 % filename = 'scenario_data_parallel_switched.mat';
-filename = 'scenario_data_parallel_success.mat';
+% filename = 'scenario_data_parallel_success.mat';
 
 sys_f        = repmat({sys},  1, nt);
 obs_f        = repmat({obs},  1, nt);
@@ -178,7 +178,7 @@ params.lambda       = lambda;           % spatial density of false measurements 
 params.gamma        = chi2inv(0.99,nz); % gate threshold - probability (PG) - for confidence of 99% and nz degrees of freedom
 
 % Nr Monte Carlo runs
-Nr = 5;
+Nr = 1;
 NEES = zeros(T,1);
 ERMS = zeros(T,1);
 
@@ -206,8 +206,13 @@ for i = 1:Nr
 
     fprintf('Run = %d/%d\n',i,Nr);
 
-    [x, z, zt, z_false, cov_z, false_targets] = realize_scenario(...
-                xt, cov_x, R, Rf, obs, gen_sys_noise, gen_obs_noise, lambda, box_size);
+    % [x, z, zt, z_false, cov_z, false_targets] = realize_scenario(...
+    %             xt, cov_x, R, Rf, obs, gen_sys_noise, gen_obs_noise, lambda, box_size);
+
+    filename = 'scenario_data_def.mat';
+    % save(filename, 'x', 'z', 'zt', 'z_false', 'cov_z', 'false_targets');
+
+    load(filename, 'x', 'z', 'zt', 'z_false', 'cov_z', 'false_targets');
 
     %% Set the initial state
     for t = 1:nt
