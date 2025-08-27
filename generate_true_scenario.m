@@ -20,7 +20,7 @@ function [xt, cov_x] = generate_true_scenario(scenario_type, nt, T, Q)
         case 'narrow_tracks'
 
             y0 = 50;
-            y_delta = 60;
+            y_delta = 40; % 20 це відстань перетену траєкторій
             x0 = -90;
 
             [xt, cov_x] = generate_narrow_tracks_scenario(nt, T, Q, x0, y0, y_delta);

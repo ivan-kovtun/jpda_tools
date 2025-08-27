@@ -29,6 +29,8 @@ function [beta, nc] = calc_assoc_prob(Omega, F, type, PDt, lambda, V)
 % Target t = 0 (no detection) shall not be included
 % Already taken into account in the probability of false detection
 switch lower(type)
+    case {'parametric_opt' 'non-parametric_opt'}
+        [beta, nc] = calc_assoc_prob_dflt_opt(Omega, F, type, PDt, lambda, V);
     case {'parametric' 'non-parametric'}
         [beta, nc] = calc_assoc_prob_dflt(Omega, F, type, PDt, lambda, V);
     case 'tree'

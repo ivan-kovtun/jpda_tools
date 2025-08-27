@@ -95,11 +95,13 @@ for t = 1:Nt
     eventData.step       = k;             % measurement index
     eventData.center     = zhkp{t};
 
-    [V, D] = eig(cov_zhkp{t});    % розклад на власні вектори і значення
-    a = sqrt(D(1,1)) * sqrt(gamma_); % велика піввісь
-    b = sqrt(D(2,2)) * sqrt(gamma_); % мала піввісь
-    width  = 3*a;  % повна ширина еліпса
-    height = 3*b;  % повна висота еліпса
+    % [V, D] = eig(cov_zhkp{t});    % розклад на власні вектори і значення
+    % a = sqrt(D(1,1)) * sqrt(gamma_); % велика піввісь
+    % b = sqrt(D(2,2)) * sqrt(gamma_); % мала піввісь
+    a = sqrt(cov_zhkp{t}(1,1))*3;
+    b = sqrt(cov_zhkp{t}(2,2))*3;
+    width  = 2*a;  % повна ширина еліпса
+    height = 2*b;  % повна висота еліпса
     eventData.size       = [width, height];
 
     % eventData.z          = [zx; zy];
@@ -114,16 +116,17 @@ for t = 1:Nt
         % V[k] = (z - zh[k|k-1])' . S[k]^-1 . (z - zh[k|k-1])
         % Nuk = (zk{j} - zhkp{t})'*(cov_zhkp{t}\(zk{j} - zhkp{t}));
         % Validation
-        if (abs(zk{j}(1) - zhkp{t}(1)) < width) && (abs(zk{j}(2) - zhkp{t}(2)) < height)
+        if (abs(zk{j}(1) - zhkp{t}(1)) < a) && (abs(zk{j}(2) - zhkp{t}(2)) < b)
         % if Nuk <= gamma_
             Omega(j,t+1) = 1;
         end
         nujt{j,t} = zk{j} - zhkp{t};
     end
-    
+    % використовуємо 2*а*2*b...
     % Volume of validation region
-    cnz = pi^(nz/2)/gamma(nz/2 + 1);
-    V(1,t+1) = cnz*sqrt(det(gamma_*cov_zhkp{t}));
+    % cnz = pi^(nz/2)/gamma(nz/2 + 1);
+    % V(1,t+1) = cnz*sqrt(det(gamma_*cov_zhkp{t}));
+    V(1,t+1) = 1/(width * height);
 end
 
 %% Number of validated measurements (sum over targets - columns)

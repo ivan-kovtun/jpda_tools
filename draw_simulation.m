@@ -6,8 +6,8 @@ function draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz)
 %   zt       - true measurements (cell array {k,t})
 %   xh       - estimated state trajectories (cell array {k,t})
 %   zh       - estimated measurements (cell array {k,t})
-%   x        - 
-%   z        -
+%   x        - x{k,ti} = xt{k,ti} + w; true + the noise of process
+%   z        - noisy measurementsnoisy measurementnoisy measurement
 %   z_false  - false alarms (cell array {t}{j})
 %   T        - number of scans per target
 %   nt       - number of targets

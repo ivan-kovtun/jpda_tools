@@ -1,4 +1,4 @@
-function [beta, nc] = calc_assoc_prob_dflt(Omega, F, type, PDt, lambda, V)
+function [beta, nc] = calc_assoc_prob_dflt_opt(Omega, F, type, PDt, lambda, V)
 %CALC_ASSOC_PROB_DFLT Calculate table with all marginal probabilities of 
 % association events for the joint probabilistic data association filter
 % by default method
@@ -62,73 +62,73 @@ end
 
 k = 0;
 
-% % Create index ranges
-% indices = arrayfun(@(n) 1:n, sc, 'UniformOutput', false);
-% 
-% % Loop over all index combinations with ndgrid-style indexing
-% [subs{1:mk}] = ndgrid(indices{:});
-% for i = 1:numel(subs{1})
-%     path = zeros(1, mk);
-%     for j = 1:mk
-%         path(j) = ind{j}(subs{j}(i));
-%     end
-% 
-%     % Validate: all elements unique except 1
-%     pathWithoutOnes = path(path ~= 1);
-%     isDuplicate = any(histcounts(pathWithoutOnes, 1:(Nt+2)) > 1);
-%     if ~isDuplicate
-%         % if numel(pathWithoutOnes) == numel(unique(pathWithoutOnes))
-%         k = k + 1;
-%         rowStart = (k - 1) * mk + 1;
-%         for j = 1:mk
-%             rowIdx = rowStart + j - 1;
-%             colIdx = path(j);
-%             Oms(rowIdx, colIdx) = 1;
-%         end
-%         % Omi = Oms(i*mk -mk +1:i*mk,:); % to visualize particular matrix 
-%         % set delta_t
-%         deltai = zeros(1, Nt);
-%         deltai(pathWithoutOnes - 1) = 1;
-%         delta(1,k*Nt -Nt +1:k*Nt) = deltai;
-% 
-%         tau(k*mk -mk +1:k*mk,1) = (path > 1)';
-%         phi(k,1) = sum((ones(mk,1)-tau(k*mk -mk +1:k*mk,1)),1);
-% 
-%     end
-% end
+% Create index ranges
+indices = arrayfun(@(n) 1:n, sc, 'UniformOutput', false);
+
+% Loop over all index combinations with ndgrid-style indexing
+[subs{1:mk}] = ndgrid(indices{:});
+for i = 1:numel(subs{1})
+    path = zeros(1, mk);
+    for j = 1:mk
+        path(j) = ind{j}(subs{j}(i));
+    end
+
+    % Validate: all elements unique except 1
+    pathWithoutOnes = path(path ~= 1);
+    isDuplicate = any(histcounts(pathWithoutOnes, 1:(Nt+2)) > 1);
+    if ~isDuplicate
+        % if numel(pathWithoutOnes) == numel(unique(pathWithoutOnes))
+        k = k + 1;
+        rowStart = (k - 1) * mk + 1;
+        for j = 1:mk
+            rowIdx = rowStart + j - 1;
+            colIdx = path(j);
+            Oms(rowIdx, colIdx) = 1;
+        end
+        % Omi = Oms(i*mk -mk +1:i*mk,:); % to visualize particular matrix 
+        % set delta_t
+        deltai = zeros(1, Nt);
+        deltai(pathWithoutOnes - 1) = 1;
+        delta(1,k*Nt -Nt +1:k*Nt) = deltai;
+
+        tau(k*mk -mk +1:k*mk,1) = (path > 1)';
+        phi(k,1) = sum((ones(mk,1)-tau(k*mk -mk +1:k*mk,1)),1);
+
+    end
+end
  
 % Matrix with all association events that satisfy:
 % one source for each measurement (one target per row)
-for j = 1:mk % 1 to 4
-    nt = sc(j); % 4 | 3 | 3 | 2
-    nl = prod(sc(1:j)); % 4 | 4*3 (=12) | 4*3*3 (=36) | 4*3*3*2 (=72)
-    pf = c*mk/nl;     % 72c*4m/4t (=72) | 72c*4m/(4*3)t (=24) 
-    % 72c*4m/(4*3*3)t (=8) | 72c*4m/(4*3*3*2)t (=4)
-    base = repmat(eye(nt),nl/nt,1); % eye(4) | eye(3) x 4 | eye(3) x 4*3 | eye(2) x 4*3*3
-    for k = 1:nl % 1 to 4 | 1 to 4*3 | 1 to 4*3*3 | 1 to 4*3*3*2
-        for L = 1:pf/mk
-            Om(pf*k -pf +j +mk*L -mk,ind{j}) = base(k,1:nt);
-        end
-    end
-end
-
-% Eliminate combinations with more than one
-% measurement originaged from a target
-k = 0;
-for i = 1:c
-    Omi = Om(i*mk -mk +1:i*mk,:);
-    deltai = sum(Omi(:,2:end),1); % Defined for t = 1..Nt (exclude dummy target 0)
-    if ~(deltai > 1)
-        k = k+1;
-        Oms(k*mk -mk +1:k*mk,:) = Omi;
-
-        tauj = sum(Omi(:,2:end),2);
-        tau(k*mk -mk +1:k*mk,1) =  tauj; % Defined for t = 1..Nt (exclude dummy target 0)
-        delta(1,k*Nt -Nt +1:k*Nt) = deltai;
-        phi(k,1) = sum((ones(mk,1)-tau(k*mk -mk +1:k*mk,1)),1);
-        % theta{k,1} = Omi;
-    end
-end
+% for j = 1:mk % 1 to 4
+%     nt = sc(j); % 4 | 3 | 3 | 2
+%     nl = prod(sc(1:j)); % 4 | 4*3 (=12) | 4*3*3 (=36) | 4*3*3*2 (=72)
+%     pf = c*mk/nl;     % 72c*4m/4t (=72) | 72c*4m/(4*3)t (=24) 
+%     % 72c*4m/(4*3*3)t (=8) | 72c*4m/(4*3*3*2)t (=4)
+%     base = repmat(eye(nt),nl/nt,1); % eye(4) | eye(3) x 4 | eye(3) x 4*3 | eye(2) x 4*3*3
+%     for k = 1:nl % 1 to 4 | 1 to 4*3 | 1 to 4*3*3 | 1 to 4*3*3*2
+%         for L = 1:pf/mk
+%             Om(pf*k -pf +j +mk*L -mk,ind{j}) = base(k,1:nt);
+%         end
+%     end
+% end
+% 
+% % Eliminate combinations with more than one
+% % measurement originaged from a target
+% k = 0;
+% for i = 1:c
+%     Omi = Om(i*mk -mk +1:i*mk,:);
+%     deltai = sum(Omi(:,2:end),1); % Defined for t = 1..Nt (exclude dummy target 0)
+%     if ~(deltai > 1)
+%         k = k+1;
+%         Oms(k*mk -mk +1:k*mk,:) = Omi;
+% 
+%         tauj = sum(Omi(:,2:end),2);
+%         tau(k*mk -mk +1:k*mk,1) =  tauj; % Defined for t = 1..Nt (exclude dummy target 0)
+%         delta(1,k*Nt -Nt +1:k*Nt) = deltai;
+%         phi(k,1) = sum((ones(mk,1)-tau(k*mk -mk +1:k*mk,1)),1);
+%         % theta{k,1} = Omi;
+%     end
+% end
 % 
 % OmsAreEqual = compare_event_sets(Oms, Oms2, mk) ...
 %                     && compare_event_sets(tau, tau2, mk);
@@ -152,7 +152,7 @@ beta = zeros(size(Omega));
 % Target t = 0 (no detection) shall not be included
 % Already taken into account in the probability of false detection
 switch lower(type)
-    case 'parametric'
+    case 'parametric_opt'
         for t = 1:Nt+1
             for j = 1:mk
                 betatj = 0;
@@ -166,6 +166,11 @@ switch lower(type)
                         ind = find(sum(Omf(i*mk -mk +1:i*mk,:),1) == 1);
                         for ti = ind
                             a1 = ((lambda^-1)*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
+                            % a1 = ((V(t)^-phif(i, 1))*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
+                            % a1old = ((lambda^-1)*F(:,ti)).^(tauf(i*mk -mk +1:i*mk,1).*Omf(i*mk -mk +1:i*mk,ti));
+                            
+                            % disp(sum(a1 - a1old));
+
                             P1 = P1*prod(a1);
                         end
                         
@@ -186,7 +191,7 @@ switch lower(type)
                 beta(j,t) = betatj;
             end
         end
-    case 'non-parametric'
+    case 'non-parametric_opt'
         % Total volume of the surveillance region
         Vt = sum(V);
         for t = 1:Nt+1

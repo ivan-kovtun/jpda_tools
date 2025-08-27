@@ -20,9 +20,10 @@ F2 = [1 T; 0 1];
 % Q2 = G2*G2';
 % A_q = 10;
 
-A_q = 100;
+A_q = 50;
+% A_q = 100;
 
-association_threshold = 7;
+association_threshold = 4; % 2.5; % meters - поріг перевірки асоціації - залежить від дисперсії шуму вимірювання наскільки виміряні значення відрізняються від дійсних
 
 Q2 = A_q*[T^3/3 T^2/2; T^2/2 T];
 
@@ -34,7 +35,7 @@ nt = 02; % number of targets
 nx = 04; % number of states
 sys = @state_eq2;
 
-show_strobes = false;
+show_strobes = true;
 
 %% Prepare strobe tracker
 measure_queue = [];
@@ -177,7 +178,7 @@ params.lambda       = lambda;           % spatial density of false measurements 
 params.gamma        = chi2inv(0.99,nz); % gate threshold - probability (PG) - for confidence of 99% and nz degrees of freedom
 
 % Nr Monte Carlo runs
-Nr = 100;
+Nr = 5;
 NEES = zeros(T,1);
 ERMS = zeros(T,1);
 
@@ -210,7 +211,7 @@ for i = 1:Nr
 
     %% Set the initial state
     for t = 1:nt
-        xh{1,t} = xt{1,t}; % як перший прогноз беремо другу істинну відмітку
+        xh{1,t} = xt{1,t}; % як перший прогноз беремо першу істинну відмітку
         % zh{1,t} = obs_f{t}(x{1,t}, 0, 0, 0);
         zh{1, t} = zt{1,t};
         cov_x{1,t} = P0 + epsilon * eye(nx);
@@ -228,7 +229,8 @@ for i = 1:Nr
         params.k = k;
         % z_all = [z(k-1,:), z_false{k-1}];
         z_all = [z(k,:), z_false{k}];
-        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
+        [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric_opt', measure_queue);
+        % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'non-parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'parametric', measure_queue);
         % [xh(k,:), cov_x(k,:), zh(k,:)] = jpda_filter(sys_f, obs_f, xh(k-1,:), cov_x(k-1,:), z_all, params, 'tree', measure_queue);
@@ -266,7 +268,7 @@ for i = 1:Nr
 
     end
 
-    % draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz);
+    draw_simulation(xt, zt, xh, zh, x, z, z_false, nt, nx, nz);
 
     metrics = evaluate_jpda_metrics(xh, xt, T, nt, association_threshold, 2, T*0.95, T);
 

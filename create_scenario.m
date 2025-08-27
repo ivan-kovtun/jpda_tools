@@ -72,7 +72,7 @@ function [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, f
         % True state and observation
         xt{1, t} = x{1, t};
         zt{1, t} = obs(x{1, t}, zeros(nx, nx), zeros(nz, 1), zeros(nz, nz));
-    
+
         for k = 2:T
             u(:, k) = gen_sys_noise(Q);     % process noise
             if k < T
@@ -96,4 +96,4 @@ function [sys_f, obs_f, x, xt, cov_x, cov_sys, z, z_false, zt, cov_z, cov_obs, f
             zt{k, t} = obs_f{t}(x{k, t}, zeros(nx, nx), zeros(nz, 1), zeros(nz, nz));
         end
     end
-    end
+end
